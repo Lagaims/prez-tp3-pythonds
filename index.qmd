@@ -1,0 +1,287 @@
+---
+title: "TP 3 - Python pour la data science"
+author: "Laura Gaimard"
+date: "2 octobre 2026"
+date-format: "D MMMM YYYY"
+slide-number: c/t
+lang: fr-FR
+slide-tone: false
+chalkboard:
+  theme: whiteboard
+format:
+  onyxia-revealjs:
+    output-file: index.html
+controls: true
+css: styles/custom.css
+ascii: true
+---
+
+## Au programme
+
+1. [**Rappels du TP 2**]{.orange} : quiz sur Git et les jointures
+2. [**Statistiques descriptives avec pandas**]{.orange} : `groupby`, agrégations, restructuration
+3. [**Au-delà de pandas**]{.orange} : Polars et DuckDB
+4. [**Git en pratique**]{.orange} : collaborer, résoudre des conflits
+
+Le cours en ligne : <https://pythonds.linogaliana.fr/>
+
+# 1️⃣ Rappels du TP 2
+
+## Quiz : rappels du TP 2 (1/2) {.smaller}
+
+[**1. Quelle est la différence entre Git et GitHub ?**]{.orange}
+
+::: {.fragment}
+[**Git**]{.orange} est un logiciel de [**contrôle de version**]{.orange} décentralisé : il garde l'historique des modifications. [**GitHub**]{.orange} est une [**forge**]{.orange} qui héberge le [**dépôt distant**]{.orange}, la source de vérité partagée. Les [**issues**]{.orange} et les [**pull requests**]{.orange} sont des fonctionnalités de GitHub, pas de Git.
+:::
+
+[**2. Quelles sont les étapes de la routine quotidienne ?**]{.orange}
+
+::: {.fragment}
+```bash
+git pull             # récupérer les modifications distantes
+git add fichier.py   # mettre dans la staging area
+git commit -m "..."  # valider, avec un message clair
+git push             # envoyer vers le dépôt distant
+```
+`git add` enregistre un [**instantané**]{.orange} : si on modifie le fichier après, il faut refaire `git add`.
+:::
+
+[**3. À quoi sert le `.gitignore` ?**]{.orange}
+
+::: {.fragment}
+Lister les fichiers que Git [**ne doit pas versionner**]{.orange} : [**données volumineuses**]{.orange} (`*.csv`, `*.parquet`), [**secrets**]{.orange} et [**jetons**]{.orange}, données confidentielles (RGPD).
+:::
+
+## Quiz : rappels du TP 2 (2/2) {.smaller}
+
+[**4. Pourquoi crée-t-on des branches ?**]{.orange}
+
+::: {.fragment}
+Travailler sur une évolution [**sans casser la version principale**]{.orange} (`main`) : tester, développer en plusieurs étapes, puis [**fusionner**]{.orange} (_merge_). Création : `git checkout -b nom-branche`.
+:::
+
+[**5. Quels sont les différents types de jointures ?**]{.orange}
+
+::: {.fragment}
+```python
+pd.merge(df1, df2, on="code_commune", how="left")
+```
+- `left` / `right` : toutes les lignes de la table de [**gauche**]{.orange} / [**droite**]{.orange}
+- `inner` : seulement les clés [**présentes des deux côtés**]{.orange}
+- `outer` : [**toutes**]{.orange} les clés, avec des `NaN` quand il manque une correspondance
+:::
+
+[**6. Que vérifier après une jointure ?**]{.orange}
+
+::: {.fragment}
+Le [**nombre de lignes avant / après**]{.orange} : des [**clés dupliquées**]{.orange} multiplient les lignes. Et les observations [**non appariées**]{.orange} : `indicator=True`, `validate="one_to_one"`. On joint sur le [**code commune**]{.orange} (COG), pas sur le nom.
+:::
+
+# 2️⃣ Statistiques descriptives avec pandas
+
+## Statistiques par groupe {.smaller}
+
+:::: {.columns}
+
+::: {.column width="55%"}
+```python
+(
+    emissions
+    .groupby("dep")
+    .agg({"Résidentiel": "sum",
+          "Routier": ["sum", "mean"]})
+    .reset_index()
+    .sort_values("Résidentiel")
+)
+```
+:::
+
+::: {.column width="45%"}
+[**split-apply-combine**]{.orange} :
+
+1. [**split**]{.orange} : `groupby`
+2. [**apply**]{.orange} : `agg`
+3. [**combine**]{.orange} : le résultat
+:::
+
+::::
+
+- préférer `agg` à `groupby(...)["col"].sum()` : on obtient un [**DataFrame**]{.orange} et non une Series
+- `groupby` place les variables de groupe dans l'[**index**]{.orange} du résultat (un [**`MultiIndex`**]{.orange} si on en groupe plusieurs)
+- `reset_index()` ou `groupby(..., as_index=False)` les ramènent en [**colonnes**]{.orange}
+
+## L'index : à utiliser avec parcimonie {.smaller}
+
+:::: {.columns}
+
+::: {.column width="50%"}
+```python
+s1 = pd.Series([1, 2, 3], index=["a", "b", "c"])
+s2 = pd.Series([10, 20, 30], index=["b", "c", "d"])
+s1 + s2
+```
+
+```
+a     NaN
+b    12.0
+c    23.0
+d     NaN
+```
+:::
+
+::: {.column width="50%"}
+Les opérations entre Series ou DataFrames s'[**alignent sur l'index**]{.orange}, pas sur la position.
+
+- les labels sans correspondance donnent des [**`NaN` silencieux**]{.orange} : aucune erreur, aucun avertissement
+- même piège en affectant une Series à une colonne : `df["x"] = s`
+- [**`groupby`**]{.orange} crée un index sans qu'on le demande : deux résultats agrégés se combinent alors [**par groupe**]{.orange}, et un groupe absent d'un côté devient `NaN`
+:::
+
+::::
+
+[**Bon réflexe**]{.orange} : garder les variables dans des [**colonnes**]{.orange}, utiliser `reset_index()` (ou `reset_index(drop=True)`) et ne passer par l'index que quand c'est voulu.
+
+## Format large ou format long ? {.smaller}
+
+- [**large**]{.orange} : une colonne par secteur (`Résidentiel`, `Routier`...)
+- [**long**]{.orange} : une ligne par commune × secteur, avec une colonne `secteur` et une colonne `valeur`
+
+```python
+emissions.melt(id_vars=["INSEE commune", "dep"],
+               var_name="secteur", value_name="emissions")   # large → long
+df_long.pivot_table(index="dep", columns="secteur",
+                    values="emissions", aggfunc="sum")        # long → large
+```
+
+Le format long est [**généralement préférable**]{.orange} : c'est le [**tidy data**]{.orange} du TP 1.
+
+## Présenter et interpréter les résultats {.smaller}
+
+```python
+from great_tables import GT
+
+GT(emissions_table, groupname_col="grp", rowname_col="dep")
+```
+
+- [**`great_tables`**]{.orange} : le portage Python de `gt` (R), pour des tableaux de synthèse [**HTML**]{.orange} (formats numériques, groupes de lignes, barres intégrées), intégrables dans Quarto
+- une [**statistique agrégée**]{.orange} se lit avec précaution : ici, l'empreinte est calculée par la [**production**]{.orange}, pas par la consommation, donc les territoires [**industriels**]{.orange} ou avec un [**aéroport**]{.orange} ressortent
+
+# 3️⃣ Au-delà de pandas
+
+## Polars
+
+:::: {.columns}
+
+::: {.column width="50%"}
+```python
+import polars as pl
+
+emissions_pl = pl.from_pandas(emissions)
+(
+    emissions_pl
+    .filter(pl.col("dep") == "12",
+            pl.col("Routier") > 500)
+    .select("INSEE commune", "Commune")
+    .head(5)
+)
+```
+:::
+
+::: {.column width="50%"}
+- inspiré de pandas, avec une [**syntaxe plus cohérente**]{.orange}
+- écrit en [**Rust**]{.orange}, basé sur [**Arrow**]{.orange} (et non NumPy)
+- [**évaluation paresseuse**]{.orange} : la requête est optimisée avant d'être exécutée
+- [**parallélisation automatique**]{.orange} des calculs
+- plus rapide sur de [**gros volumes**]{.orange}
+:::
+
+::::
+
+Pas besoin de répéter le nom du DataFrame : on manipule des [**expressions**]{.orange} (`pl.col`).
+
+## DuckDB
+
+:::: {.columns}
+
+::: {.column width="50%"}
+```python
+import duckdb
+
+duckdb.sql("""
+    SELECT "INSEE commune", "Commune"
+    FROM emissions
+    WHERE dep == '12' AND Routier > 500
+    LIMIT 5
+""")
+```
+:::
+
+::: {.column width="50%"}
+- moteur [**SQL analytique**]{.orange} qui tourne [**dans Python**]{.orange}, sans serveur
+- traite des données [**plus grosses que la RAM**]{.orange} (_out-of-core_)
+- excellente intégration du format [**Parquet**]{.orange}
+- même SQL en [**Python, R, C++, JavaScript**]{.orange}
+- l'idée : « [**Big data is dead**]{.orange} », une machine suffit souvent
+:::
+
+::::
+
+Pour qui connaît déjà [**SQL**]{.orange}, c'est la porte d'entrée la plus naturelle.
+
+# 4️⃣ Git en pratique
+
+## Le GitHub Flow
+
+- [**`main`**]{.orange} est le tronc, toujours propre
+- chaque évolution est développée dans une [**branche dédiée**]{.orange}
+- on la ramène dans `main` [**uniquement via une pull request**]{.orange}, puis la branche disparaît
+
+Une [**pull request**]{.orange} (fonctionnalité de GitHub, pas de Git) permet de [**discuter et relire**]{.orange} le code avant la fusion. L'option [**squash**]{.orange} regroupe tous les commits de la branche en un seul.
+
+## Conflits et fusions {.smaller}
+
+:::: {.columns}
+
+::: {.column width="50%"}
+- un `git push` est [**rejeté**]{.orange} si le dépôt distant a de nouveaux commits : il faut d'abord [**`git pull`**]{.orange}
+- si les historiques ont divergé, Git les [**fusionne**]{.orange} automatiquement
+- sauf si on a modifié [**le même passage**]{.orange} d'un fichier : c'est un [**conflit**]{.orange}, à résoudre à la main puis à commiter
+- [**merge**]{.orange} : commit de fusion, plus simple. [**rebase**]{.orange} : historique linéaire, plus délicat
+:::
+
+::: {.column width="50%"}
+```
+<<<<<<< HEAD
+version locale
+=======
+version distante
+>>>>>>> origin/main
+```
+`git status` liste les fichiers en conflit. Dans VSCode : [**Accept Current**]{.orange}, [**Accept Incoming**]{.orange} ou édition manuelle.
+:::
+
+::::
+
+## Git et les notebooks {.smaller}
+
+Un `.ipynb` est un [**fichier JSON**]{.orange} qui contient le code, les [**sorties**]{.orange} et des métadonnées. Conséquences :
+
+- le dépôt [**grossit**]{.orange} à chaque commit
+- les diffs sont [**illisibles**]{.orange} et les conflits peuvent [**corrompre**]{.orange} le fichier
+
+[**Les bonnes pratiques**]{.orange}
+
+- [**`nbstripout`**]{.orange} : retirer les sorties avant le commit
+- [**un notebook par personne**]{.orange} pour limiter les conflits
+- mettre le code dans des [**fichiers `.py`**]{.orange} importés dans les notebooks
+
+## À retenir
+
+- `groupby` + `agg` : le [**réflexe**]{.orange} pour les statistiques par groupe, `reset_index()` pour revenir à un DataFrame
+- [**`melt`**]{.orange} et [**`pivot`**]{.orange} pour passer du format large au format long
+- [**Polars**]{.orange} et [**DuckDB**]{.orange} existent pour les gros volumes, [**pandas**]{.orange} reste le socle
+- [**Git**]{.orange} : on pull avant de push, on fusionne dans `main` [**via des pull requests**]{.orange}
+- [**Jamais de données, de jeton ni de sorties de notebook dans Git**]{.red2}
+
+Le cours en ligne : <https://pythonds.linogaliana.fr/>

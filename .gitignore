@@ -1,0 +1,11 @@
+/_site/
+/.quarto/
+/index.html
+/index_files/
+
+# Copies generees au rendu par l'extension onyxia
+/background.svg
+/logo.svg
+/favicon-32x32.png
+
+**/*.quarto_ipynb
