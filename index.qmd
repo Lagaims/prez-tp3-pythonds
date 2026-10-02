@@ -32,7 +32,7 @@ Le cours en ligne : <https://pythonds.linogaliana.fr/>
 [**1. Quelle est la différence entre Git et GitHub ?**]{.orange}
 
 ::: {.fragment}
-[**Git**]{.orange} est un logiciel de [**contrôle de version**]{.orange} décentralisé : il garde l'historique des modifications. [**GitHub**]{.orange} est une [**forge**]{.orange} qui héberge le [**dépôt distant**]{.orange}, la source de vérité partagée. Les [**issues**]{.orange} et les [**pull requests**]{.orange} sont des fonctionnalités de GitHub, pas de Git.
+[**Git**]{.orange} est un logiciel de [**contrôle de version**]{.orange} décentralisé : il garde l'historique des modifications. [**GitHub**]{.orange} est une [**forge**]{.orange} qui héberge le [**dépôt distant**]{.orange}, la source du code partagé. Les [**issues**]{.orange} et les [**pull requests**]{.orange} sont des fonctionnalités de GitHub, pas de Git.
 :::
 
 [**2. Quelles sont les étapes de la routine quotidienne ?**]{.orange}
@@ -43,6 +43,7 @@ git pull             # récupérer les modifications distantes
 git add fichier.py   # mettre dans la staging area
 git commit -m "..."  # valider, avec un message clair
 git push             # envoyer vers le dépôt distant
+git status           # retrouver l'état du dépôt local
 ```
 `git add` enregistre un [**instantané**]{.orange} : si on modifie le fichier après, il faut refaire `git add`.
 :::
@@ -75,7 +76,7 @@ pd.merge(df1, df2, on="code_commune", how="left")
 [**6. Que vérifier après une jointure ?**]{.orange}
 
 ::: {.fragment}
-Le [**nombre de lignes avant / après**]{.orange} : des [**clés dupliquées**]{.orange} multiplient les lignes. Et les observations [**non appariées**]{.orange} : `indicator=True`, `validate="one_to_one"`. On joint sur le [**code commune**]{.orange} (COG), pas sur le nom.
+Le [**nombre de lignes avant / après**]{.orange} : des [**clés dupliquées**]{.orange} multiplient les lignes, et les observations [**non appariées**]{.orange}. On joint sur le [**code commune**]{.orange} (COG), pas sur le nom.
 :::
 
 # 2️⃣ Statistiques descriptives avec pandas
@@ -140,7 +141,7 @@ Les opérations entre Series ou DataFrames s'[**alignent sur l'index**]{.orange}
 
 ::::
 
-[**Bon réflexe**]{.orange} : garder les variables dans des [**colonnes**]{.orange}, utiliser `reset_index()` (ou `reset_index(drop=True)`) et ne passer par l'index que quand c'est voulu.
+[**Bon réflexe**]{.orange} : garder les variables dans des [**colonnes**]{.orange}, utiliser `reset_index()` et ne passer par l'index que quand c'est voulu.
 
 ## Format large ou format long ? {.smaller}
 
